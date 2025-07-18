@@ -1,6 +1,6 @@
-# 🧘 Breath-Aware Coherence Agent (FastAPI)
+# 🧘 Breath-Aware AI Agent (FastAPI)
 
-This project implements a lightweight **emotionally-aware AI backend** for Coherence Protocol. The system is designed to process emotional check-ins and provide coherence-aware feedback based on biometric signals like breath rate and HRV (heart rate variability).
+This project implements a lightweight **emotionally-aware AI backend**. The system is designed to process emotional check-ins and provide coherence-aware feedback based on biometric signals like breath rate and HRV (heart rate variability).
 
 ---
 
