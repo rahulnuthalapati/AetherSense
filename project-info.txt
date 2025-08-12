@@ -1,0 +1,56 @@
+Hi Rahul, For part 2, btw congratulations on your work well done in part 1! 
+
+Here are some quick updates you can make in refactoring:
+	1.	Stabilize the Fitbit Adapter
+	•	Add basic error handling (e.g., retries, logging when the device/API fails).
+	•	Include a simple data validation step to ensure HRV readings are clean before scoring.
+	2.	Simulate Live Data
+	•	Even without real-time streaming, create a small script to feed sample HRV data continuously to the pipeline.
+	•	This will make it easier to test how the scoring agent reacts under “live” conditions.
+	3.	Prepare for Multi-Device Support
+	•	Define a basic interface (e.g., DeviceAdapter class) with methods like connect(), fetch_data(), normalize().
+	•	Implement Fitbit as the first instance — this will make adding new devices later much easier.
+
+Please asks me if you have any bottleneck :) 
+
+A spec to follow next ➡️ 
+Fitbit Adapter Cleanup & Extension – Starter Spec
+
+Context:
+Mohammed’s code currently connects to Fitbit and retrieves HRV data, but lacks robustness and modularity. This update will stabilize the adapter, allow simulated streaming, and prepare the codebase for multi-device support.
+
+⸻
+
+1. Stabilize the Fitbit Adapter
+
+Goal: Ensure the adapter handles failures gracefully and only passes clean data to the scoring pipeline.
+Tasks:
+	•	Add error handling: retries (3x) and logging if the device/API fails.
+	•	Implement a data validation step: discard or flag corrupted HRV readings (e.g., missing timestamps, null values).
+	•	Confirm the cleaned data is passed in the expected schema (e.g., {timestamp, hrv_value}).
+
+⸻
+
+2. Simulate Live Data
+
+Goal: Enable testing without live Fitbit streaming.
+Tasks:
+	•	Write a script that continuously feeds sample HRV data (CSV/JSON provided) into the pipeline at intervals (e.g., 1Hz).
+	•	Allow toggling between live mode and simulated mode with a flag (e.g., --simulate).
+
+⸻
+
+3. Prepare for Multi-Device Support
+
+Goal: Make it easy to add other wearables later (Apple Watch, Garmin, etc.).
+Tasks:
+	•	Create a DeviceAdapter interface with methods:
+	•	connect()
+	•	fetch_data()
+	•	normalize()
+	•	Refactor the Fitbit adapter to implement this interface as the first instance.
+Dropping Testing Criteria
+	1.	Adapter logs errors/retries when connection fails.
+	2.	Validation filters out invalid HRV readings before scoring.
+	3.	Simulation script successfully streams sample data and is recognized by the scoring agent.
+	4.	Interface is implemented cleanly, allowing easy addition of new devices later.

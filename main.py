@@ -1,10 +1,25 @@
 from fastapi import FastAPI
-from models import BreathCheckIn, BreathResponse
-from scoring import calculate_coherence
-from memory import store_checkin, get_user_history
-from agent import generate_response
+from starlette.middleware.sessions import SessionMiddleware
+
+from src.config import settings
+from src.utils.models import BreathCheckIn, BreathResponse
+from src.utils.scoring import calculate_coherence
+from src.utils.memory import store_checkin, get_user_history
+from src.agent import generate_response
+from src.routes.fitbit_routes import router as fitbit_router
+from src.logger import get_logger
+
+logger = get_logger(__name__)
 
 app = FastAPI()
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.APP_SECRET_KEY,
+    https_only=False,
+    same_site="lax",
+)
+app.include_router(fitbit_router)
 
 @app.post("/breath-check-in", response_model=BreathResponse)
 def breath_check_in(data: BreathCheckIn):
@@ -30,5 +45,5 @@ def breath_check_in(data: BreathCheckIn):
         score,
         trend=trend_info
     )
-    print(f"Generated response: {response_msg} and coherence score: {score}")
+    logger.info(f"Generated response: {response_msg} and coherence score: {score}")
     return BreathResponse(coherence_score=score, message=response_msg)

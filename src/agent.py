@@ -2,6 +2,9 @@ import openai
 import os
 from langchain_openai import ChatOpenAI
 from langchain.schema import SystemMessage, HumanMessage
+from dotenv import load_dotenv
+
+load_dotenv()
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
