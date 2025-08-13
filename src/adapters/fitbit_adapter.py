@@ -1,12 +1,11 @@
-from datetime import date
 import requests
-import logging
+from datetime import date, datetime
+from pydantic import BaseModel, Field
 from typing import List, Dict, Any
 from tenacity import retry, stop_after_attempt, wait_fixed, retry_if_exception_type
 
 from src.adapters.base_adapter import DeviceAdapter
 from src.config import settings
-
 from src.logger import get_logger
 
 logger = get_logger(__name__)
@@ -17,7 +16,12 @@ class ApiConnectionError(Exception):
     """Custom exception for API connection failures."""
     pass
 
+SCOPE = "heartrate profile"
 
+class HRVEntry(BaseModel):
+    timestamp: datetime = Field(..., description="ISO8601 timestamp of the HRV measurement")
+    hrv_value: float = Field(..., description="HRV value (deep) as a float")
+    
 # --- Fitbit Adapter Implementation ---
 class FitbitAdapter(DeviceAdapter):
     """
@@ -47,7 +51,7 @@ class FitbitAdapter(DeviceAdapter):
             return False
         
         try:
-            #Using profile test connection and token
+            #Using profile test connection to the Fitbit API and check if the token is valid
             response = requests.get(f"{self.base_url}/profile.json", headers=self._get_auth_headers())
             response.raise_for_status()
             print("response: ", response.json())
@@ -75,12 +79,16 @@ class FitbitAdapter(DeviceAdapter):
         today = date.today()
         formatted_date = today.strftime("%Y-%m-%d")
 
+        # Fetch the HRV data for the current day from the Fitbit API
         response = requests.get(
             f"{self.base_url}/hrv/date/{formatted_date}.json",
             headers=self._get_auth_headers()
         )
+        # Logging the profile to see if the data is being fetched
         logger.info("Response: ", response.json())
         response.raise_for_status()
+
+        # Normalize the data to the standard application schema
         return self.normalize_data(response.json())
 
     def normalize_data(self, raw_data: Dict[str, Any]) -> List[Dict]:
@@ -93,13 +101,18 @@ class FitbitAdapter(DeviceAdapter):
         logger.info(f"Received {len(hrv_entries)} HRV entries for validation.")
 
         for entry in hrv_entries:
+            # Validating the data to ensure it is in the correct format
             if isinstance(entry, dict) and "value" in entry and "timestamp" in entry:
                 hrv_value = entry["value"].get("deep")
                 if hrv_value is not None:
-                    cleaned_data.append({
-                        "timestamp": entry["timestamp"],
-                        "hrv_value": hrv_value
-                    })
+                    try:
+                        validated = HRVEntry(
+                            timestamp=entry["timestamp"],
+                            hrv_value=hrv_value
+                        )
+                        cleaned_data.append(validated.model_dump())
+                    except Exception as e:
+                        logger.warning(f"Validation failed for entry {entry}: {e}")
                 else:
                     logger.warning(f"Discarding entry with missing 'deep' HRV value: {entry}")
             else:

@@ -17,14 +17,22 @@ loguru==0.7.2
 # --- Prod WSGI server (for container / cloud deploy) ---
 gunicorn==22.0.0           # `gunicorn -k uvicorn.workers.UvicornWorker app:app`
 
+# --- LangGraph/Agentic ---
 langgraph==0.6.4
 langchain-community==0.3.27
 langchain-openai==0.3.29
 langchain-anthropic==0.3.18
 
+# --- FastAPI ---
 fastapi==0.116.1
 uvicorn==0.35.0
 
+# --- Tenacity ---
 tenacity==9.1.2
 
+# --- Security ---
 itsdangerous==2.2.0
+
+# --- Testing ---
+pytest==8.4.1
+requests-mock==1.12.1

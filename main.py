@@ -13,18 +13,21 @@ logger = get_logger(__name__)
 
 app = FastAPI()
 
+# Add session middleware for handling session data (e.g., for OAuth state)
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.APP_SECRET_KEY,
     https_only=False,
     same_site="lax",
 )
+
+# Include the fitbit authentication routes
 app.include_router(fitbit_router)
 
 @app.post("/breath-check-in", response_model=BreathResponse)
 def breath_check_in(data: BreathCheckIn):
     # 1. Store check-in
-    store_checkin(data.user_id, data.dict())
+    store_checkin(data.user_id, data.model_dump())
 
     # 2. Calculate coherence score
     score = calculate_coherence(data.breath_rate, data.hrv)

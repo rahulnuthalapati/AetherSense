@@ -4,7 +4,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import requests, secrets, hashlib, base64
 
 from src.config import settings
-from src.adapters.fitbit_adapter import FitbitAdapter
+from src.adapters.fitbit_adapter import FitbitAdapter, SCOPE as FITBIT_SCOPE
 from src.logger import get_logger
 
 logger = get_logger(__name__)
@@ -22,13 +22,23 @@ def generate_pkce_codes():
 
 @router.get("/login")
 def login_to_fitbit(request: Request):
+    
+    # Clear any old session data to ensure a fresh login attempt
     request.session.pop('fitbit_pkce_verifier', None)
     request.session.pop('fitbit_oauth_state', None)
+
+    # Generate the PKCE codes and state
     pkce_codes = generate_pkce_codes()
     state = secrets.token_urlsafe(16)
+
+    # Store the verifier and state in the session to verify in the callback
     request.session['fitbit_pkce_verifier'] = pkce_codes["verifier"]
     request.session['fitbit_oauth_state'] = state
-    scope = "heartrate profile"
+
+    # The scope parameter specifies the data we want to access from the Fitbit API
+    scope = FITBIT_SCOPE
+
+    # Build the authorization URL with the PKCE codes and state
     base_auth_url = (
         f"https://www.fitbit.com/oauth2/authorize?client_id={settings.FITBIT_CLIENT_ID}"
         f"&response_type=code"
@@ -37,6 +47,8 @@ def login_to_fitbit(request: Request):
         f"&scope={scope.replace(' ', '+')}"
         f"&state={state}"
     )
+
+    # The prompt parameter forces the login and consent screens for demo purposes
     auth_url = f"{base_auth_url}&prompt=login+consent"
 
     return RedirectResponse(url=auth_url, status_code=302)
@@ -47,15 +59,20 @@ def handle_fitbit_callback(request: Request):
     Handles the redirect from Fitbit after user authorization.
     Exchanges the authorization code for an access token.
     """
+    # Get the authorization code and state from the query parameters
     code = request.query_params.get("code")
     state = request.query_params.get("state")
 
     stored_state = request.session.get('fitbit_oauth_state')
     code_verifier = request.session.get('fitbit_pkce_verifier')
+
+    # Security check: ensure the state matches to prevent CSRF attacks
     if not state or state != stored_state:
-        return {"error": "Invalid authorization response."}
+        raise HTTPException(status_code=400, detail="Invalid authorization response state")
     if not code:
         return {"error": "Authorization code not found."}
+
+    # Exchange the authorization code for an access token
     token_url = "https://api.fitbit.com/oauth2/token"
     payload = {
         "client_id": settings.FITBIT_CLIENT_ID,
@@ -64,8 +81,11 @@ def handle_fitbit_callback(request: Request):
         "code": code,
         "code_verifier": code_verifier
     }
+
+    # Use the client ID and secret to authenticate the request
     auth_header = requests.auth.HTTPBasicAuth(settings.FITBIT_CLIENT_ID, settings.FITBIT_CLIENT_SECRET)
     try:
+        # Send the request to the Fitbit API to exchange the code for an access token
         response = requests.post(token_url, auth=auth_header, data=payload)
         response.raise_for_status()
         token_data = response.json()
@@ -83,10 +103,12 @@ def get_live_hrv_data(access_token: HTTPAuthorizationCredentials = Depends(token
     """
     access_token = access_token.credentials
     try:
+        # Initialize the FitbitAdapter with the access token from the header
         fitbit_adapter = FitbitAdapter(access_token=access_token)
         if not fitbit_adapter.connect():
             raise HTTPException(status_code=401, detail="Failed to connect to Fitbit API. Token may be invalid or expired.")
 
+        # Fetch the HRV data from the Fitbit API
         hrv_data = fitbit_adapter.fetch_data()
         if not hrv_data:
             return {"message": "No HRV data found for today."}
