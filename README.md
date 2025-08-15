@@ -95,11 +95,13 @@ The server will run at `http://localhost:8000`
 
 To connect to a user's Fitbit account, the application uses the standard OAuth 2.0 flow:
 
-Login: Direct the user to http://127.0.0.1:8000/fitbit/login. This will redirect them to the Fitbit website to log in and grant permissions.
+1.  **Login:** Direct the user to `http://127.0.0.1:8000/fitbit/login`. This will redirect the user to the Fitbit website to log in and grant permissions.
 
-Callback: After granting permission, the user will be redirected back to the REDIRECT_URL specified in your settings, where the application will securely exchange an authorization code for an access token.
+2.  **Callback & Token Management:** After granting permission, the user is redirected back to the application. The backend securely exchanges the authorization code for an **access token** and a **refresh token**. These tokens are stored in the user's server-side session and are never exposed to the client.
 
-Fetch Data: With a valid access token, you can make requests to endpoints like /get-live-hrv to fetch real-time data from the Fitbit API.
+3.  **Fetch Data & Auto-Refresh:** When you make a request to an endpoint like `/get-live-hrv`, the application automatically uses the stored access token. If the token has expired, it seamlessly uses the refresh token to get a new one in the background before fetching the data. This ensures continuous access without requiring the user to log in again.
+
+So directly make a call to http://127.0.0.1:8000/fitbit/get-live-hrv to directly access the live hrv data.
 
 
 ## 🧪 How to Simulate Data

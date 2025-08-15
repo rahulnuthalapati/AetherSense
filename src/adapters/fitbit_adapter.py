@@ -1,5 +1,5 @@
 import requests
-from datetime import date, datetime
+from datetime import datetime, timezone
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any
 from tenacity import retry, stop_after_attempt, wait_fixed, retry_if_exception_type
@@ -36,6 +36,7 @@ class FitbitAdapter(DeviceAdapter):
         if not self.client_id or not self.client_secret:
             raise ValueError("FITBIT_CLIENT_ID and FITBIT_CLIENT_SECRET must be set in the .env file.")
     
+    # Primarily using this connect method with profile API to check if authentication is working and API is reachable
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_fixed(2),
@@ -76,7 +77,8 @@ class FitbitAdapter(DeviceAdapter):
             raise ApiConnectionError("Cannot fetch data without an access token.")
 
         logger.info("Fetching daily HRV data from Fitbit...")
-        today = date.today()
+        #Using utc timezone to get the current date
+        today = datetime.now(timezone.utc)
         formatted_date = today.strftime("%Y-%m-%d")
 
         # Fetch the HRV data for the current day from the Fitbit API
