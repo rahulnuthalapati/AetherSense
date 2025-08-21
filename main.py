@@ -6,7 +6,7 @@ from src.utils.models import BreathCheckIn, BreathResponse
 from src.utils.scoring import calculate_coherence
 from src.utils.memory import store_checkin, get_user_history
 from src.agent import generate_response
-from src.routes.fitbit_routes import router as fitbit_router
+from src.routes import ecg_routes, fitbit_routes
 from src.logger import get_logger
 
 logger = get_logger(__name__)
@@ -22,7 +22,8 @@ app.add_middleware(
 )
 
 # Include the fitbit authentication routes
-app.include_router(fitbit_router)
+app.include_router(ecg_routes.router)
+app.include_router(fitbit_routes.router)
 
 @app.post("/breath-check-in", response_model=BreathResponse)
 def breath_check_in(data: BreathCheckIn):

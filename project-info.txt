@@ -54,3 +54,58 @@ Dropping Testing Criteria
 	2.	Validation filters out invalid HRV readings before scoring.
 	3.	Simulation script successfully streams sample data and is recognized by the scoring agent.
 	4.	Interface is implemented cleanly, allowing easy addition of new devices later.
+
+What the Vercel app will POST
+	•	Endpoint: POST /egc/upload
+	•	Accepts: CSV or JSON array of normalized records
+	•	Common schema (JSON per row):
+
+{
+  "timestamp": "2025-08-17T17:00:00Z",
+  "signal": "ecg" | "r_peak" | "st_elev" | "st_depr" | "marked_event",
+  "value": 0.845,
+  "unit": "mV",
+  "meta": { "lead": "I", "sampling_rate_hz": 250, "source": "kids_app" }
+}
+
+	•	Sample upload files:
+	•	CSV sample (sandbox:/mnt/data/sample_egc_upload.csv?_chatgptios_conversationID=68a20b2a-b844-8327-a31c-a55ef8a6e2c0&_chatgptios_messageID=309f53cf-4244-4096-b32c-81047b267d02)
+	•	JSON sample (sandbox:/mnt/data/sample_egc_upload.json?_chatgptios_conversationID=68a20b2a-b844-8327-a31c-a55ef8a6e2c0&_chatgptios_messageID=309f53cf-4244-4096-b32c-81047b267d02)
+
+CSV uses flattened meta keys (meta.lead, meta.sampling_rate_hz, meta.source, meta.label). Either format is fine.
+
+Ingest/normalize rules
+	1.	Assume timestamps are UTC (allow optional tz_offset override on upload).
+	2.	Drop empty/NaN rows; sort by timestamp; de-dup by (timestamp, signal).
+	3.	Persist raw, plus a normalized copy in a single table/collection.
+
+What your GET should return
+	•	Events:
+	•	GET /egc/events?since=2025-08-17T16:59:00Z&until=2025-08-17T17:00:06Z
+	•	Sample response: JSON (sandbox:/mnt/data/sample_get_egc_events_response.json?_chatgptios_conversationID=68a20b2a-b844-8327-a31c-a55ef8a6e2c0&_chatgptios_messageID=309f53cf-4244-4096-b32c-81047b267d02)
+
+{
+  "since": "2025-08-17T16:59:00Z",
+  "until": "2025-08-17T17:00:06Z",
+  "count": 3,
+  "events": [
+    { "timestamp": "2025-08-17T17:00:02Z", "type": "r_peak", "hr_estimate_bpm": 72, "source": "kids_app" },
+    { "timestamp": "2025-08-17T17:00:03.5Z", "type": "st_elev", "magnitude_mv": 1.6, "lead": "I", "source": "kids_app" },
+    { "timestamp": "2025-08-17T17:00:04.2Z", "type": "marked_event", "label": "button_press", "source": "kids_app" }
+  ]
+}
+
+	•	Optional waveform window:
+	•	GET /egc/waveform?window=2025-08-17T17:00:00Z/2025-08-17T17:00:06Z&lead=I
+	•	Returns time-ordered ecg points (mV) and any inline event markers.
+
+Tests to add
+	•	CSV + JSON happy paths (mixed signals + meta).
+	•	Malformed rows (bad timestamps, unknown signal, non-numeric value where required).
+	•	De-dup + sort behavior.
+	•	Summary counters: rows_ingested, rows_dropped, events_emitted.
+
+Notes
+	•	Keep auth/session out of the upload path for now (files are push data), but wire your usual observability.
+	•	Document the schema in README + a tiny mapping table (e.g., “R-peak → r_peak”).
+	•	Devices stay pluggable later (chest strap, watch, etc.) without breaking consumers.

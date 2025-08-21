@@ -14,6 +14,7 @@ This project implements a lightweight **emotionally-aware AI backend**. The syst
 * **Fitbit API Integration** for secure user authentication and live data fetching.
 * **Live Data Simulation** script to enable robust testing without a physical device.
 * **Extensible Multi-Device Adapter** interface for easily adding support for other wearables.
+* **ECG Data Ingestion** endpoint to accept and process raw ECG data from file uploads (CSV/JSON).
 
 ---
 
@@ -26,6 +27,7 @@ This project implements a lightweight **emotionally-aware AI backend**. The syst
 │ │ ├── base_adapter.py     # Abstract interface for all device adapters
 │ │ └── fitbit_adapter.py   # Fitbit-specific implementation of the adapter
 │ ├── routes
+| | ├── ecg_routes.py       # Handles the ecg routes from the vercel app
 │ │ └── fitbit_routes.py    # Handles Fitbit OAuth 2.0 authentication flow
 │ ├── utils
 │ │ ├── memory.py         # Stores last 3 check-ins per user (in-memory)
@@ -37,6 +39,10 @@ This project implements a lightweight **emotionally-aware AI backend**. The syst
 ├── tools
 │ ├── simulate_data.py      # Script to send sample data to the app
 │ └── sample_hrv_data.json  # Sample data for the simulation script
+├── tests
+│ ├── test_ecg.py          # pytest cases for ecg routes
+│ ├── test_fitbit.py       # pytest cases for fitbit routes
+│ └── test_main.py         # pytest cases for base routes from main
 ├── .env                    # Environment variables (API keys, secrets)
 ├── requirements.txt        # Python package requirements
 └── README.md               # You're here
@@ -90,6 +96,63 @@ uvicorn main:app --reload
 The server will run at `http://localhost:8000`
 
 ---
+
+
+## ⚡ API Endpoints
+
+### ECG Data Ingestion API
+
+This API provides endpoints for uploading and retrieving normalized ECG data.
+
+#### Endpoints
+
+  * **`POST /ecg/upload`**: Uploads a file containing ECG data.
+
+      * **Body**: `multipart/form-data` containing the file.
+      * **File Formats**: Accepts `.csv` and `.json` files.
+      * **Query Parameters**:
+          * `tz_override` (optional): A standard timezone name (e.g., `America/New_York`) to localize timestamps from the file before converting them to UTC. If omitted, timestamps are assumed to be in UTC.
+      * **Success Response**:
+        ```json
+        {
+          "status": "success",
+          "rows_ingested": 9,
+          "rows_dropped": 0
+        }
+        ```
+
+  * **`GET /ecg/events`**: Retrieves formatted ECG events for a given time window.
+
+      * **Query Parameters**:
+          * `since` (required): The start of the time window in ISO 8601 format (e.g., `2025-08-17T17:00:00Z`).
+          * `until` (required): The end of the time window in ISO 8601 format.
+
+#### Normalized Data Schema
+
+The application normalizes all uploaded data into the following Pydantic schema before it is logged.
+
+```python
+class EGCRecord(BaseModel):
+    timestamp: datetime
+    signal: Literal["ecg", "r_peak", "st_elev", "st_depr", "marked_event"]
+    value: Optional[float] = None
+    unit: Optional[Literal["mV", "bpm"]] = None
+    meta: Dict[str, Any]
+```
+
+#### Field Mapping Table
+
+The application can accept different file formats. The following table shows how incoming field names are mapped to the standardized `signal` field in the normalized schema.
+
+| Incoming Field Name | Standardized `signal` Value |
+| :--- | :--- |
+| `R-peak` | `r_peak` |
+| `ST Elevation` | `st_elev` |
+| `ST Depression` | `st_depr` |
+| `Marked Event` | `marked_event` |
+| `Event Type` | (Varies) |
+| `type` | (Varies) |
+
 
 ## 🔗 Fitbit Integration
 

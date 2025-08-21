@@ -3,6 +3,10 @@ openai==1.99.6             # remove if only using local HF models
 transformers==4.41.0       # comment out if you stick to OpenAI API
 tqdm==4.66.4               # nice progress bar when loading big models
 
+# --- Data processing ---
+pandas==2.3.1
+python-dateutil==2.9.0
+
 # --- Data validation & typing ---
 pydantic==2.7.4            # request / response schemas
 python-dotenv==1.0.1       # load OPENAI_API_KEY or HF_HOME from .env
@@ -10,6 +14,7 @@ pydantic-settings==2.10.1
 
 # --- HTTP utilities ---
 requests==2.32.3
+python-multipart==0.0.20
 
 # --- Logging / monitoring (optional but handy) ---
 loguru==0.7.2
