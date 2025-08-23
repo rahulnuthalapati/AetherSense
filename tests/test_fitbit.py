@@ -1,14 +1,11 @@
 import pytest
-from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
 from src.adapters.fitbit_adapter import FitbitAdapter
-from src.routes.fitbit_routes import get_valid_fitbit_adapter
-import requests, time
-from main import app  # Import your FastAPI app
+import requests
+from unittest.mock import patch, MagicMock
 
-client = TestClient(app)
+from tests.conftest import session_state
 
-def test_fitbit_login_redirect():
+def test_fitbit_login_redirect(client):
     """
     Tests the /fitbit/login endpoint to ensure it correctly redirects
     to the Fitbit authorization URL.
@@ -18,37 +15,24 @@ def test_fitbit_login_redirect():
     assert response.headers["location"].startswith("https://www.fitbit.com/oauth2/authorize")
 
 @patch('requests.post')
-@patch('fastapi.Request.session', new_callable=MagicMock)
-def test_fitbit_callback_success(mock_session, mock_post):
-    """
-    Tests the /fitbit/callback endpoint with a mocked successful token exchange.
-    """
-    # 1. Mock the response from the external Fitbit API
-    mock_post.return_value.raise_for_status.return_value = None
-    mock_post.return_value.json.return_value = {
-        "access_token": "mock_test_token",
-        "refresh_token": "mock_refresh_token",
-        "expires_in": 3600
-    }
+def test_fitbit_callback_success(mock_post, client, session_state, fitbit_token_success, make_response, fixed_time):
+    """Tests the callback with a successful token exchange and asserts session is updated."""
+    session_state['fitbit_oauth_state'] = 'test_state'
+    session_state['fitbit_pkce_verifier'] = 'test_verifier'
+    mock_post.return_value = make_response(200, fitbit_token_success)
 
-    # 2. Mock the session's .get() method to return the correct values
-    def session_get_side_effect(key, default=None):
-        if key == 'fitbit_oauth_state':
-            return 'test_state'
-        if key == 'fitbit_pkce_verifier':
-            return 'test_verifier'
-        return default
-    mock_session.get.side_effect = session_get_side_effect
-
-    # 3. Make the request to the callback endpoint
     response = client.get("/fitbit/callback?code=test_code&state=test_state")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "success", "message": "Fitbit account linked successfully."}
+    assert response.json()["message"] == "Fitbit account linked successfully."
+    # Assert that the session was correctly updated
+    assert session_state['fitbit_access_token'] == "access_abc"
+    assert session_state['fitbit_refresh_token'] == "refresh_xyz"
+    assert session_state['fitbit_token_expires_at'] == fixed_time + 3600
 
 @patch('requests.post') # We need to mock post here too to prevent real network calls
 @patch('fastapi.Request.session', new_callable=MagicMock)
-def test_fitbit_callback_invalid_state(mock_session, mock_post):
+def test_fitbit_callback_invalid_state(mock_post, mock_session, client):
     """
     Tests that the /fitbit/callback endpoint correctly handles an invalid state.
     """
@@ -64,7 +48,7 @@ def test_fitbit_callback_invalid_state(mock_session, mock_post):
 
 @patch('requests.post')
 @patch('fastapi.Request.session', new_callable=MagicMock)
-def test_fitbit_callback_token_exchange_failure(mock_session, mock_post):
+def test_fitbit_callback_token_exchange_failure(mock_session, mock_post, client):
     """
     Tests the /fitbit/callback endpoint for a token exchange failure.
     """
@@ -87,87 +71,112 @@ def test_fitbit_callback_token_exchange_failure(mock_session, mock_post):
     assert "Could not obtain access token from Fitbit" in response.json().get("error")
 
 @patch('requests.get')
-@patch('src.adapters.fitbit_adapter.FitbitAdapter.connect')
-def test_get_live_hrv_data_with_malformed_payload(mock_connect, mock_get):
-    """
-    Tests the get_live_hrv_data endpoint with a malformed HRV payload,
-    ensuring the adapter's normalization logic is correctly applied.
-    """
-    mock_connect.return_value = True
-
-    # 1. Mock the raw API response from Fitbit that fetch_data will process
-    mock_response = MagicMock()
-    mock_response.raise_for_status.return_value = None
-    mock_response.json.return_value = {
-        "hrv": [
-            # Malformed entries that should be discarded
-            {"value": {"deep": "not_a_float"}, "timestamp": "2025-08-14T10:00:00"},
-            {"value": {}, "timestamp": "2025-08-14T10:01:00"},
-            {"value": {"deep": None}, "timestamp": "2025-08-14T10:01:30"},
-            # A single valid entry
-            {"value": {"deep": 80}, "timestamp": "2025-08-14T10:02:00"}
-        ]
-    }
-    mock_get.return_value = mock_response
-
-    # 2. Directly instantiate and test the adapter's methods with a mocked adapter
-    adapter = FitbitAdapter(access_token="fake_token_for_testing")
-    normalized_data = adapter.normalize_data(mock_response.json())
-
-    # 3. Assert that the normalization logic works as expected
-    assert len(normalized_data) == 1
-    assert normalized_data[0]['hrv_value'] == 80
-
-@patch('requests.get')
 @patch('requests.post')
-def test_get_live_hrv_data_with_token_refresh(mock_post, mock_get):
-    """
-    Tests that the /get-live-hrv endpoint automatically refreshes an expired token
-    by overriding the dependency to inject a mocked, expired session state.
-    """
-    # 1. Mock the response for the token refresh API call
-    mock_post.return_value.raise_for_status.return_value = None
-    mock_post.return_value.json.return_value = {
-        "access_token": "new_refreshed_access_token",
-        "refresh_token": "new_refreshed_refresh_token",
-        "expires_in": 3600
-    }
-    
-    # 2. Mock the API calls for connect() and fetch_data()
+def test_get_live_hrv_data_with_token_refresh(mock_post, mock_get, client, expired_session_state, fitbit_token_refresh_success, hrv_payload_valid, make_response):
+    """Tests that the /get-live-hrv endpoint automatically refreshes an expired token."""
+    mock_post.return_value = make_response(200, fitbit_token_refresh_success)
     mock_get.side_effect = [
-        MagicMock(
-            **{"raise_for_status.return_value": None, 
-               "json.return_value": {"user": {"encodedId": "XYZ"}}}
-        ),
-        MagicMock(
-            **{"raise_for_status.return_value": None, 
-               "json.return_value": {"hrv": [{"value": {"deep": 75}, "timestamp": "2025-08-14T12:00:00"}]}}
-        )
+        make_response(200, {"user": {"encodedId": "XYZ"}}), # For connect() call
+        make_response(200, hrv_payload_valid)               # For fetch_data() call
     ]
 
-    # 3. Define the override dependency to simulate an expired session
-    def override_get_expired_adapter():
-        mock_request = MagicMock()
-        mock_request.session = {
-            'fitbit_access_token': "expired_access_token",
-            'fitbit_refresh_token': "valid_refresh_token",
-            'fitbit_token_expires_at': time.time() - 60  # Expired
-        }
-        # Run the actual dependency logic with our mocked request
-        return get_valid_fitbit_adapter(mock_request)
-
-    # 4. Apply the override to the FastAPI app
-    app.dependency_overrides[get_valid_fitbit_adapter] = override_get_expired_adapter
-
-    # 5. Make the request
     response = client.get("/fitbit/get-live-hrv")
-    
-    # 6. Clean up the override after the test
-    app.dependency_overrides = {}
 
-    # 7. Assertions
     assert response.status_code == 200
     assert response.json()["status"] == "success"
     mock_post.assert_called_once()
-    assert mock_post.call_args.kwargs['data']['refresh_token'] == 'valid_refresh_token'
-    assert mock_get.call_args_list[0].kwargs['headers']['Authorization'] == "Bearer new_refreshed_access_token"
+    assert mock_post.call_args.kwargs['data']['refresh_token'] == 'refresh_xyz'
+    assert mock_get.call_args_list[1].kwargs['headers']['Authorization'] == "Bearer access_refreshed"
+
+@patch("requests.get")
+def test_get_live_hrv_rate_limit_retry(mock_get, client, make_response, hrv_payload_valid, fresh_session_state):
+    """
+    Tests that the adapter retries on a 429 rate limit error and eventually succeeds.
+    """
+    # 1. Simulate the sequence of API calls. The endpoint first calls connect() and then fetch_data().
+    # We need to mock both. Let's assume connect() succeeds, and fetch_data() encounters the rate limit.
+    mock_get.side_effect = [
+        # First call is for connect() -> /profile.json
+        make_response(200, {"user": {"encodedId": "XYZ"}}),
+        
+        # Subsequent calls are for fetch_data() -> /hrv/...
+        make_response(429, {"error": "Too Many Requests"}), # First attempt fails
+        make_response(429, {"error": "Too Many Requests"}), # Second attempt fails (1st retry)
+        make_response(200, hrv_payload_valid)               # Third attempt succeeds (2nd retry)
+    ]
+
+    # 2. Make the request
+    response = client.get("/fitbit/get-live-hrv")
+
+    # 3. Assert success
+    assert response.status_code == 200
+    assert response.json()["status"] == "success"
+    
+    # The HRV payload from the fixture is nested under "hrv", but the normalized data is a flat list.
+    assert response.json()["data"][0]["hrv_value"] == 80
+    
+    # 4. Assert that requests.get was called 4 times in total
+    # (1 for connect + 3 for fetch_data with retries)
+    assert mock_get.call_count == 4
+
+
+# ---------------- Parametrized Tests ----------------
+# The fixtures are the same as the ones in the tests below, but we parametrize the tests so we don't have to write them again.
+@pytest.mark.parametrize(
+    "hrv_payload_fixture, expected_length, expected_first_value",
+    [
+        ("hrv_payload_valid", 1, 80),
+        ("hrv_payload_empty", 0, None),
+        ("hrv_payload_all_malformed", 0, None),
+        ("hrv_payload_mixed", 1, 82),
+    ],
+)
+@patch("requests.get")
+def test_get_live_hrv_payload_scenarios(
+    mock_get, client, make_response, fresh_session_state, request,
+    hrv_payload_fixture, expected_length, expected_first_value
+):
+    """
+    Tests various HRV payload scenarios (valid, empty, malformed, mixed).
+    """
+    # Get the actual payload data from the fixture name
+    hrv_payload = request.getfixturevalue(hrv_payload_fixture)
+    
+    # Mock the sequence of API calls: connect() then fetch_data()
+    mock_get.side_effect = [
+        make_response(200, {"user": {"encodedId": "XYZ"}}), # For connect()
+        make_response(200, hrv_payload)                    # For fetch_data()
+    ]
+
+    response = client.get("/fitbit/get-live-hrv")
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert len(data) == expected_length
+    if expected_length > 0:
+        assert data[0]["hrv_value"] == expected_first_value
+
+# ---------------- Edge Case Tests ----------------
+
+@patch("requests.post")
+def test_callback_missing_access_token(mock_post, client, session_state, fitbit_token_missing_access, make_response):
+    """Token response missing access_token should fail gracefully."""
+    mock_post.return_value = make_response(200, fitbit_token_missing_access)
+
+    session_state['fitbit_oauth_state'] = 'state123'
+    session_state['fitbit_pkce_verifier'] = 'pkce123'
+
+    response = client.get("/fitbit/callback?code=abc&state=state123")
+
+    # The app will raise a 500 error with a specific detail message
+    assert response.status_code == 500
+    assert "Incomplete token data" in response.json().get("detail", "")
+
+@patch("requests.post")
+def test_refresh_token_expired(mock_post, client, expired_refresh_session_state, make_response):
+    """Expired refresh token should force a reconnect flow."""
+    mock_post.return_value = make_response(400, {"error": "invalid_grant"})
+
+    response = client.get("/fitbit/get-live-hrv")
+
+    assert response.status_code == 401
+    assert "re-authenticate" in response.json().get("detail", "").lower()

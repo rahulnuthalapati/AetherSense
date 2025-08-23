@@ -58,7 +58,7 @@ def get_valid_fitbit_adapter(request: Request) -> FitbitAdapter:
     if time.time() > expires_at - 300:
         new_token_data = _refresh_fitbit_token(refresh_token)
         if not new_token_data:
-            raise HTTPException(status_code=401, detail="Could not refresh Fitbit token. Please re-authenticate.")
+            raise HTTPException(status_code=401, detail="Could not refresh Fitbit token. Please re-authenticate to reconnect your account.")
         
         # Update session with new token info
         _update_session_with_tokens(request, new_token_data)
@@ -143,6 +143,11 @@ def handle_fitbit_callback(request: Request):
         response = requests.post(token_url, auth=auth_header, data=payload)
         response.raise_for_status()
         token_data = response.json()
+
+        if "access_token" not in token_data or "refresh_token" not in token_data:
+            logger.error(f"Incomplete token data received from Fitbit: {token_data}")
+            raise HTTPException(status_code=500, detail="Incomplete token data received from Fitbit.")
+
         _update_session_with_tokens(request, token_data)
 
         return {"status": "success", "message": "Fitbit account linked successfully."}
@@ -167,8 +172,8 @@ def get_live_hrv_data(fitbit_adapter: FitbitAdapter = Depends(get_valid_fitbit_a
 
         # Fetch the HRV data from the Fitbit API
         hrv_data = fitbit_adapter.fetch_data()
-        if not hrv_data:
-            return {"message": "No HRV data found for today."}
+        
+        # An empty list is a valid, successful response. Always return the standard structure.
         return {"status": "success", "data": hrv_data}
     except Exception as e:
         logger.error(f"An error occurred: {e}")

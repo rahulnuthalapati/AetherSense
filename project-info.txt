@@ -109,3 +109,16 @@ Notes
 	•	Keep auth/session out of the upload path for now (files are push data), but wire your usual observability.
 	•	Document the schema in README + a tiny mapping table (e.g., “R-peak → r_peak”).
 	•	Devices stay pluggable later (chest strap, watch, etc.) without breaking consumers.
+
+
+A few notes on polish and next steps:
+	•	Fixtures & reuse: Right now the session setup and token payloads repeat across tests. Moving those into conftest.py would make the suite cleaner and easier to maintain.
+	•	Edge cases: Good coverage of the basics — let’s add a few more:
+	•	Empty HRV dataset
+	•	All malformed HRV entries
+	•	Token response missing required fields
+	•	Expired refresh token (not just access token)
+	•	429 rate limit response
+	•	Assertions: For callback success, let’s also assert that tokens and expiration are properly persisted in session, not just that the route returned success.
+	•	Parametrization: Some of the malformed HRV cases could be collapsed into one parametrized test to cut down repetition.
+	•	Time handling: Using a fixed clock (freezegun or a monkeypatch) will make expiry logic deterministic and avoid flakiness in CI.

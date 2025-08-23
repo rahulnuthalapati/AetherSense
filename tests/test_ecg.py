@@ -1,15 +1,11 @@
 import pytest
-from fastapi.testclient import TestClient
 from unittest.mock import patch
-from main import app # Import your main FastAPI app instance
-
-# Create a client to make requests to your app
-client = TestClient(app)
+from main import app
 
 # --- 1. Happy Path Tests (CSV & JSON) ---
 
 @patch('requests.post')
-def test_upload_csv_happy_path(mock_post):
+def test_upload_csv_happy_path(mock_post, client):
     """
     Tests the successful upload of a valid CSV file.
     Asserts that the file is processed and the correct number of rows are ingested.
@@ -33,7 +29,7 @@ def test_upload_csv_happy_path(mock_post):
     assert mock_post.call_count == 9
 
 @patch('requests.post')
-def test_upload_json_happy_path(mock_post):
+def test_upload_json_happy_path(mock_post, client):
     """
     Tests the successful upload of a valid JSON file.
     """
@@ -55,21 +51,12 @@ def test_upload_json_happy_path(mock_post):
 # --- 2. Malformed Rows Test ---
 
 @patch('requests.post')
-def test_malformed_rows_are_dropped(mock_post):
+def test_malformed_rows_are_dropped(mock_post, client, malformed_csv_data):
     """
     Tests that rows with missing essential data (like timestamp or signal) are dropped
     and the summary counts are correct.
     """
     mock_post.return_value.raise_for_status.return_value = None
-    
-    # Create a malformed CSV in memory
-    malformed_csv_data = (
-        "timestamp,signal,value,unit\n"
-        "2025-08-17T17:00:00Z,ecg,0.8,mV\n"  # Valid
-        ",ecg,0.9,mV\n"                     # Invalid (missing timestamp)
-        "2025-08-17T17:00:02Z,,0.9,mV\n"   # Invalid (missing signal)
-        "2025-08-17T17:00:03Z,ecg,1.0,mV\n"  # Valid
-    )
     
     response = client.post(
         "/ecg/upload",
@@ -87,21 +74,12 @@ def test_malformed_rows_are_dropped(mock_post):
 # --- 3. Deduplication and Sorting Test ---
 
 @patch('requests.post')
-def test_deduplication_and_sorting(mock_post):
+def test_deduplication_and_sorting(mock_post, client, duplicate_csv_data):
     """
     Tests that duplicate rows are dropped. While we can't test sorting without
     the GET endpoint, we can confirm that duplicates are not ingested.
     """
     mock_post.return_value.raise_for_status.return_value = None
-    
-    # Create a CSV with unsorted and duplicate data
-    duplicate_csv_data = (
-        "timestamp,signal,value\n"
-        "2025-08-17T17:00:02Z,ecg,0.9\n"   # Later timestamp, first in file
-        "2025-08-17T17:00:00Z,ecg,0.8\n"   # Earlier timestamp
-        "2025-08-17T17:00:00Z,ecg,0.8\n"   # Exact duplicate
-        "2025-08-17T17:00:01Z,r_peak,\n"
-    )
     
     response = client.post(
         "/ecg/upload",
