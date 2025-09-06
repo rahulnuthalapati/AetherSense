@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.middleware.cors import CORSMiddleware
 
 from src.config import settings
 from src.utils.models import BreathCheckIn, BreathResponse
@@ -19,6 +20,15 @@ app.add_middleware(
     secret_key=settings.APP_SECRET_KEY,
     https_only=False,
     same_site="lax",
+)
+
+#TODO: Will need to change the * to specific domains in production once we have the app deployed
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Include the fitbit authentication routes

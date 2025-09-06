@@ -5,8 +5,8 @@ from typing import Any, Dict, Literal, Optional
 class BreathCheckIn(BaseModel):
     user_id: str
     text: str
-    breath_rate: int
-    hrv: int
+    breath_rate: float
+    hrv: float
 
 class BreathResponse(BaseModel):
     coherence_score: float
