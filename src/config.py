@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     REDIRECT_URL: str 
     EVENT_LOGGER_TOKEN: str
     EVENT_LOGGER_URL: str
+    FRONTEND_URL: str
+    FAKE_HRV_DATA: bool = True  # Set to True to enable fake HRV data for development/testing
 
 # Create a single, reusable instance of the settings
 settings = Settings()
