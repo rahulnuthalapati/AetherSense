@@ -1,6 +1,7 @@
 import requests, json
 import pandas as pd
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Request
+from typing import Optional
 from io import StringIO
 from datetime import datetime
 from dateutil import tz, parser as dateutil_parser
@@ -17,36 +18,60 @@ router = APIRouter(
 )
 
 @router.post("/upload")
-async def upload_ecg_data(file: UploadFile = File(...), tz_override: str = None):
+async def upload_ecg_data(
+    request: Request,
+    file: Optional[UploadFile] = File(None),
+    tz_override: str = None
+):
     """
     Accepts, parses, and normalizes various ECG data formats (CSV or JSON),
     then logs each valid record by calling the event-logger microservice.
+    Accepts either a file upload (multipart/form-data) or a JSON array (application/json).
     """
-    logger.info(f"Received file upload: {file.filename}")
-    contents = await file.read()
+    logger.info(f"Received upload request. File: {file.filename if file else None}")
     df = None
+    content_type = request.headers.get("content-type", "")
 
-    # --- Step 1: Parse the Uploaded File ---
-    try:
-        if file.filename.endswith('.csv'):
-            df = pd.read_csv(StringIO(contents.decode('utf-8')))
-        elif file.filename.endswith('.json'):
-            json_data = json.loads(contents)
+    if file is not None:
+        contents = await file.read()
+        try:
+            if file.filename.endswith('.csv'):
+                df = pd.read_csv(StringIO(contents.decode('utf-8')))
+            elif file.filename.endswith('.json'):
+                json_data = json.loads(contents)
+                if isinstance(json_data, list):
+                    df = pd.DataFrame(json_data)
+                elif isinstance(json_data, dict):
+                    records_list = next((v for v in json_data.values() if isinstance(v, list)), None)
+                    if records_list:
+                        df = pd.DataFrame(records_list)
+                    else: raise ValueError("Uploaded JSON object does not contain a list of records.")
+                else: raise ValueError("Unsupported JSON structure.")
+            else:
+                logger.warning(f"Unsupported file format for {file.filename}")
+                raise HTTPException(status_code=400, detail="Unsupported file format. Please upload CSV or JSON.")
+        except Exception as e:
+            logger.error(f"Failed to parse file {file.filename}. Error: {e}")
+            raise HTTPException(status_code=400, detail=f"Could not parse file: {e}")
+    elif "application/json" in content_type:
+        try:
+            json_data = await request.json()
             if isinstance(json_data, list):
                 df = pd.DataFrame(json_data)
             elif isinstance(json_data, dict):
                 records_list = next((v for v in json_data.values() if isinstance(v, list)), None)
                 if records_list:
                     df = pd.DataFrame(records_list)
-                else: raise ValueError("Uploaded JSON object does not contain a list of records.")
-            else: raise ValueError("Unsupported JSON structure.")
-        else:
-            logger.warning(f"Unsupported file format for {file.filename}")
-            raise HTTPException(status_code=400, detail="Unsupported file format. Please upload CSV or JSON.")
-
-    except Exception as e:
-        logger.error(f"Failed to parse file {file.filename}. Error: {e}")
-        raise HTTPException(status_code=400, detail=f"Could not parse file: {e}")
+                else:
+                    raise ValueError("JSON object does not contain a list of records.")
+            else:
+                raise ValueError("Unsupported JSON structure.")
+        except Exception as e:
+            logger.error(f"Failed to parse JSON body. Error: {e}")
+            raise HTTPException(status_code=400, detail=f"Could not parse JSON body: {e}")
+    else:
+        logger.warning("Unsupported Content-Type or missing file.")
+        raise HTTPException(status_code=400, detail="Unsupported Content-Type. Use multipart/form-data or application/json.")
 
     # --- Step 2: Standardize Column Names ---
     # This block maps various incoming column names to our internal standard names.
@@ -65,7 +90,7 @@ async def upload_ecg_data(file: UploadFile = File(...), tz_override: str = None)
     # After renaming, ensure 'meta' column exists if it wasn't in the original file
     if 'meta' not in df.columns:
         # Check for the original CSV format with flat meta columns
-        if file.filename.endswith('.csv') and any(col.startswith('meta.') for col in df.columns):
+        if file is not None and file.filename.endswith('.csv') and any(col.startswith('meta.') for col in df.columns):
             logger.info("Detected original CSV format. Reshaping meta columns.")
             meta_cols = [col for col in df.columns if col.startswith('meta.')]
             meta_df = df[meta_cols].rename(columns=lambda c: c.replace('meta.', ''))
@@ -83,6 +108,18 @@ async def upload_ecg_data(file: UploadFile = File(...), tz_override: str = None)
     df.dropna(subset=['timestamp', 'signal'], inplace=True)
     if df.empty:
         return {"status": "success", "rows_ingested": 0, "rows_dropped": initial_rows}
+
+    # Robust timestamp parsing: handle ISO8601 strings and UNIX epoch seconds
+    def parse_timestamp(ts):
+        try:
+            return pd.to_datetime(ts, utc=True)
+        except Exception:
+            try:
+                return pd.to_datetime(float(ts), unit='s', utc=True)
+            except Exception:
+                return pd.NaT
+    df['timestamp'] = df['timestamp'].apply(parse_timestamp)
+    df.dropna(subset=['timestamp'], inplace=True)
 
     # Sort the data by timestamp
     if tz_override:
