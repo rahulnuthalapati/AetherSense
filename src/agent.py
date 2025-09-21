@@ -1,13 +1,11 @@
-import openai
-import os
 from langchain_openai import ChatOpenAI
 from langchain.schema import SystemMessage, HumanMessage
-
-openai.api_key = os.getenv("OPENAI_API_KEY")
+from src.config import settings
 
 llm = ChatOpenAI(
     model_name="gpt-4o-mini",   # or "gpt-4-turbo" | "gpt-4o-latest"
-    temperature=0               # deterministic code output
+    temperature=0,               # deterministic code output
+    api_key=settings.OPENAI_API_KEY 
 )
 
 def generate_response(text, coherence, trend=None):

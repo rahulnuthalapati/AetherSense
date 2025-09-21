@@ -1,0 +1,10 @@
+timestamp,signal,value,unit,meta.lead,meta.sampling_rate_hz,meta.source,meta.label
+2025-08-17T17:00:00Z,ecg,0.8,mV,I,250.0,kids_app,
+2025-08-17T17:00:01Z,ecg,0.85,mV,I,250.0,kids_app,
+2025-08-17T17:00:02Z,ecg,0.9,mV,I,250.0,kids_app,
+2025-08-17T17:00:03Z,ecg,0.95,mV,I,250.0,kids_app,
+2025-08-17T17:00:04Z,ecg,1.0,mV,I,250.0,kids_app,
+2025-08-17T17:00:05Z,ecg,1.05,mV,I,250.0,kids_app,
+2025-08-17T17:00:02Z,r_peak,,,I,250.0,kids_app,
+2025-08-17T17:00:03.500000Z,st_elev,1.6,mV,I,250.0,kids_app,
+2025-08-17T17:00:04.200000Z,marked_event,,,,,kids_app,button_press

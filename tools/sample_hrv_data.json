@@ -1,0 +1,182 @@
+[
+  {
+    "user_id": "user123",
+    "text": "Feeling a bit stressed after a long meeting.",
+    "breath_rate": 20,
+    "hrv": 55
+  },
+  {
+    "user_id": "user123",
+    "text": "Did some deep breathing, feeling much calmer now.",
+    "breath_rate": 14,
+    "hrv": 68
+  },
+  {
+    "user_id": "user123",
+    "text": "Just woke up, feeling refreshed.",
+    "breath_rate": 12,
+    "hrv": 75
+  },
+  {
+    "user_id": "user123",
+    "text": "Stuck in traffic, feeling a little anxious.",
+    "breath_rate": 22,
+    "hrv": 52
+  },
+  {
+    "user_id": "user123",
+    "text": "Enjoying a quiet cup of tea.",
+    "breath_rate": 15,
+    "hrv": 70
+  },
+  {
+    "user_id": "user123",
+    "text": "Finished a good workout at the gym.",
+    "breath_rate": 18,
+    "hrv": 65
+  },
+  {
+    "user_id": "user123",
+    "text": "Feeling productive and focused at work.",
+    "breath_rate": 16,
+    "hrv": 72
+  },
+  {
+    "user_id": "user123",
+    "text": "Watching a funny movie, feeling relaxed.",
+    "breath_rate": 13,
+    "hrv": 78
+  },
+  {
+    "user_id": "user123",
+    "text": "A bit overwhelmed with my to-do list.",
+    "breath_rate": 19,
+    "hrv": 58
+  },
+  {
+    "user_id": "user123",
+    "text": "Had a great conversation with a friend.",
+    "breath_rate": 15,
+    "hrv": 71
+  },
+  {
+    "user_id": "user123",
+    "text": "Feeling tired after a long day.",
+    "breath_rate": 17,
+    "hrv": 60
+  },
+  {
+    "user_id": "user123",
+    "text": "Just finished a 10-minute meditation.",
+    "breath_rate": 11,
+    "hrv": 82
+  },
+  {
+    "user_id": "user123",
+    "text": "Rushing to meet a deadline.",
+    "breath_rate": 21,
+    "hrv": 54
+  },
+  {
+    "user_id": "user123",
+    "text": "Walking in the park, enjoying nature.",
+    "breath_rate": 14,
+    "hrv": 76
+  },
+  {
+    "user_id": "user123",
+    "text": "Feeling a little down today.",
+    "breath_rate": 18,
+    "hrv": 59
+  },
+  {
+    "user_id": "user123",
+    "text": "Excited about the weekend plans.",
+    "breath_rate": 16,
+    "hrv": 73
+  },
+  {
+    "user_id": "user123",
+    "text": "Reading a good book before bed.",
+    "breath_rate": 13,
+    "hrv": 80
+  },
+  {
+    "user_id": "user123",
+    "text": "Just had a big argument.",
+    "breath_rate": 24,
+    "hrv": 48
+  },
+  {
+    "user_id": "user123",
+    "text": "Feeling grateful and content.",
+    "breath_rate": 12,
+    "hrv": 85
+  },
+  {
+    "user_id": "user123",
+    "text": "Preparing for a presentation, feeling nervous.",
+    "breath_rate": 20,
+    "hrv": 56
+  },
+  {
+    "user_id": "user123",
+    "text": "Listening to some calming music.",
+    "breath_rate": 15,
+    "hrv": 74
+  },
+  {
+    "user_id": "user123",
+    "text": "Feeling a bit sluggish this afternoon.",
+    "breath_rate": 17,
+    "hrv": 63
+  },
+  {
+    "user_id": "user123",
+    "text": "Laughing with my family.",
+    "breath_rate": 14,
+    "hrv": 79
+  },
+  {
+    "user_id": "user123",
+    "text": "Worried about an upcoming appointment.",
+    "breath_rate": 19,
+    "hrv": 57
+  },
+  {
+    "user_id": "user123",
+    "text": "Just got some good news!",
+    "breath_rate": 16,
+    "hrv": 77
+  },
+  {
+    "user_id": "user123",
+    "text": "Feeling mentally drained.",
+    "breath_rate": 18,
+    "hrv": 61
+  },
+  {
+    "user_id": "user123",
+    "text": "Taking a moment to just sit and breathe.",
+    "breath_rate": 13,
+    "hrv": 81
+  },
+  {
+    "user_id": "user123",
+    "text": "Dealing with a difficult customer at work.",
+    "breath_rate": 23,
+    "hrv": 50
+  },
+  {
+    "user_id": "user123",
+    "text": "Feeling accomplished after finishing a project.",
+    "breath_rate": 15,
+    "hrv": 75
+  },
+  {
+    "user_id": "user123",
+    "text": "Waking up from a nightmare.",
+    "breath_rate": 22,
+    "hrv": 53
+  }
+]

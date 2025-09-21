@@ -1,0 +1,100 @@
+[
+  {
+    "timestamp": "2025-08-17T17:00:00Z",
+    "signal": "ecg",
+    "value": 0.8,
+    "unit": "mV",
+    "meta": {
+      "lead": "I",
+      "sampling_rate_hz": 250,
+      "source": "kids_app"
+    }
+  },
+  {
+    "timestamp": "2025-08-17T17:00:01Z",
+    "signal": "ecg",
+    "value": 0.85,
+    "unit": "mV",
+    "meta": {
+      "lead": "I",
+      "sampling_rate_hz": 250,
+      "source": "kids_app"
+    }
+  },
+  {
+    "timestamp": "2025-08-17T17:00:02Z",
+    "signal": "ecg",
+    "value": 0.9,
+    "unit": "mV",
+    "meta": {
+      "lead": "I",
+      "sampling_rate_hz": 250,
+      "source": "kids_app"
+    }
+  },
+  {
+    "timestamp": "2025-08-17T17:00:03Z",
+    "signal": "ecg",
+    "value": 0.95,
+    "unit": "mV",
+    "meta": {
+      "lead": "I",
+      "sampling_rate_hz": 250,
+      "source": "kids_app"
+    }
+  },
+  {
+    "timestamp": "2025-08-17T17:00:04Z",
+    "signal": "ecg",
+    "value": 1.0,
+    "unit": "mV",
+    "meta": {
+      "lead": "I",
+      "sampling_rate_hz": 250,
+      "source": "kids_app"
+    }
+  },
+  {
+    "timestamp": "2025-08-17T17:00:05Z",
+    "signal": "ecg",
+    "value": 1.05,
+    "unit": "mV",
+    "meta": {
+      "lead": "I",
+      "sampling_rate_hz": 250,
+      "source": "kids_app"
+    }
+  },
+  {
+    "timestamp": "2025-08-17T17:00:02Z",
+    "signal": "r_peak",
+    "value": null,
+    "unit": null,
+    "meta": {
+      "lead": "I",
+      "sampling_rate_hz": 250,
+      "source": "kids_app"
+    }
+  },
+  {
+    "timestamp": "2025-08-17T17:00:03.500000Z",
+    "signal": "st_elev",
+    "value": 1.6,
+    "unit": "mV",
+    "meta": {
+      "lead": "I",
+      "sampling_rate_hz": 250,
+      "source": "kids_app"
+    }
+  },
+  {
+    "timestamp": "2025-08-17T17:00:04.200000Z",
+    "signal": "marked_event",
+    "value": null,
+    "unit": null,
+    "meta": {
+      "label": "button_press",
+      "source": "kids_app"
+    }
+  }
+]
