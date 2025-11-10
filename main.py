@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.middleware.cors import CORSMiddleware
 
 from src.config import settings
 from src.utils.models import BreathCheckIn, BreathResponse
@@ -12,6 +13,15 @@ from src.logger import get_logger
 logger = get_logger(__name__)
 
 app = FastAPI()
+
+#TODO: Will need to change the * to specific domains in production once we have the app deployed
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[settings.FRONTEND_URL],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Add session middleware for handling session data (e.g., for OAuth state)
 app.add_middleware(

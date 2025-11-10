@@ -3,3 +3,4 @@ __pycache__/
 /.wenv
 /venv
 .env
+.vscode/settings.json

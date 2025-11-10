@@ -1,4 +1,4 @@
-import time
+import time, random
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 import requests, secrets, hashlib, base64
@@ -45,27 +45,41 @@ def get_valid_fitbit_adapter(request: Request) -> FitbitAdapter:
     Dependency that provides a FitbitAdapter with a valid (refreshed if needed) token.
     It retrieves token details from the session and handles the refresh flow.
     """
+    logger.info("--- Entering get_valid_fitbit_adapter ---")
+    
+    # Log the entire session content to see what's available
+    logger.info(f"Session content: {request.session}")
+
     # Retrieve token details from the session
     access_token = request.session.get('fitbit_access_token')
     refresh_token = request.session.get('fitbit_refresh_token')
     expires_at = request.session.get('fitbit_token_expires_at', 0)
 
+    logger.info(f"Retrieved access_token from session: {'Yes' if access_token else 'No'}")
+    logger.info(f"Retrieved refresh_token from session: {'Yes' if refresh_token else 'No'}")
+
     # Raise an error if the user is not authenticated with Fitbit
     if not all([access_token, refresh_token]):
+        logger.error("Authentication failed: access_token or refresh_token missing from session.")
         raise HTTPException(status_code=401, detail="User not authenticated with Fitbit.")
 
     # Refresh token if it's expired or will expire in the next 5 minutes (300 seconds)
     if time.time() > expires_at - 300:
+        logger.info("Token is expired or close to expiring. Attempting refresh.")
         new_token_data = _refresh_fitbit_token(refresh_token)
         if not new_token_data:
+            logger.error("Token refresh failed.")
             raise HTTPException(status_code=401, detail="Could not refresh Fitbit token. Please re-authenticate to reconnect your account.")
         
         # Update session with new token info
         _update_session_with_tokens(request, new_token_data)
         access_token = new_token_data["access_token"]
+        logger.info("Token refresh successful. Proceeding with new access token.")
+    else:
+        logger.info("Token is valid and not expired.")
     
+    logger.info("--- Exiting get_valid_fitbit_adapter ---")
     return FitbitAdapter(access_token=access_token)
-
 def generate_pkce_codes():
     """Generates a code_verifier and a code_challenge for the PKCE flow."""
     code_verifier = secrets.token_urlsafe(32)
@@ -122,7 +136,7 @@ def handle_fitbit_callback(request: Request):
 
     # Security check: ensure the state matches to prevent CSRF attacks
     if not state or state != stored_state:
-        raise HTTPException(status_code=400, detail="Invalid authorization response state")
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}?fitbit_status=error_state")
     if not code:
         return {"error": "Authorization code not found."}
 
@@ -150,21 +164,25 @@ def handle_fitbit_callback(request: Request):
 
         _update_session_with_tokens(request, token_data)
 
-        return {"status": "success", "message": "Fitbit account linked successfully."}
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}?fitbit_status=success")
     except requests.exceptions.RequestException as e:
         error_message = f"Error exchanging code for token: {e}"
         # Check if the exception has a response object before accessing it
         if e.response is not None:
             error_message += f" - {e.response.text}"
         logger.error(error_message)
-        return {"error": "Could not obtain access token from Fitbit."}
+        return RedirectResponse(url=f"{settings.FRONTEND_URL}?fitbit_status=error_token")
 
 @router.get("/get-live-hrv")
-def get_live_hrv_data(fitbit_adapter: FitbitAdapter = Depends(get_valid_fitbit_adapter)):
+def get_live_hrv_data(request: Request, fitbit_adapter: FitbitAdapter = Depends(get_valid_fitbit_adapter)):
     """
     Uses a valid access token to initialize the FitbitAdapter and fetch
-    live HRV data from the Fitbit API.
+    live HRV data from the Fitbit API, or returns fake data if enabled.
     """
+    if settings.FAKE_HRV_DATA:
+        # Return a random HRV value between 60 and 100, simulating a real response structure
+        fake_hrv = [{"timestamp": time.time(), "hrv_value": random.randint(60, 100)}]
+        return {"status": "success", "data": fake_hrv}
     try:
         # Check if the user is authenticated with Fitbit
         if not fitbit_adapter.connect():
@@ -178,3 +196,14 @@ def get_live_hrv_data(fitbit_adapter: FitbitAdapter = Depends(get_valid_fitbit_a
     except Exception as e:
         logger.error(f"An error occurred: {e}")
         raise HTTPException(status_code=500, detail="An unexpected error occurred while fetching data.")
+
+@router.get("/status")
+def get_fitbit_status(request: Request):
+    """
+    Checks the server-side session to see if a valid Fitbit access token exists.
+    """
+    # If the access token is in the user's session, they are connected.
+    if request.session.get('fitbit_access_token'):
+        return {"status": "connected"}
+    else:
+        return {"status": "disconnected"}

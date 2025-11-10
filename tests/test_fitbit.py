@@ -1,8 +1,8 @@
-import pytest
-from src.adapters.fitbit_adapter import FitbitAdapter
-import requests
+import pytest, requests
 from unittest.mock import patch, MagicMock
 
+from src.adapters.fitbit_adapter import FitbitAdapter
+from src.config import settings
 from tests.conftest import session_state
 
 def test_fitbit_login_redirect(client):
@@ -20,19 +20,24 @@ def test_fitbit_callback_success(mock_post, client, session_state, fitbit_token_
     session_state['fitbit_oauth_state'] = 'test_state'
     session_state['fitbit_pkce_verifier'] = 'test_verifier'
     mock_post.return_value = make_response(200, fitbit_token_success)
+    
+    # Make the request but DO NOT follow the redirect, so we can inspect it
+    response = client.get("/fitbit/callback?code=test_code&state=test_state", follow_redirects=False)
 
-    response = client.get("/fitbit/callback?code=test_code&state=test_state")
+    # 1. Assert that the response is a redirect
+    assert response.status_code == 307 # FastAPI's RedirectResponse defaults to 307
+    
+    # 2. Assert that it redirects to the correct frontend URL with a success status
+    expected_url = f"{settings.FRONTEND_URL}?fitbit_status=success"
+    assert response.headers["location"] == expected_url
 
-    assert response.status_code == 200
-    assert response.json()["message"] == "Fitbit account linked successfully."
-    # Assert that the session was correctly updated
+    # 3. Assert that the session was still correctly updated in the background
     assert session_state['fitbit_access_token'] == "access_abc"
     assert session_state['fitbit_refresh_token'] == "refresh_xyz"
     assert session_state['fitbit_token_expires_at'] == fixed_time + 3600
 
-@patch('requests.post') # We need to mock post here too to prevent real network calls
 @patch('fastapi.Request.session', new_callable=MagicMock)
-def test_fitbit_callback_invalid_state(mock_post, mock_session, client):
+def test_fitbit_callback_invalid_state(mock_session, client):
     """
     Tests that the /fitbit/callback endpoint correctly handles an invalid state.
     """
@@ -40,11 +45,12 @@ def test_fitbit_callback_invalid_state(mock_post, mock_session, client):
     mock_session.get.return_value = 'correct_state_in_session'
 
     # 2. Make the request with the wrong state in the URL
-    response = client.get("/fitbit/callback?code=any_code&state=wrong_state_from_url")
+    response = client.get("/fitbit/callback?code=any_code&state=wrong_state_from_url", follow_redirects=False)
     
-    # Assert that the security check fails with a 400 error
-    assert response.status_code == 400
-    assert "Invalid authorization response state" in response.text
+    # Assert that it redirects with an error status
+    assert response.status_code == 307
+    expected_url = f"{settings.FRONTEND_URL}?fitbit_status=error_state"
+    assert response.headers["location"] == expected_url
 
 @patch('requests.post')
 @patch('fastapi.Request.session', new_callable=MagicMock)
@@ -65,10 +71,12 @@ def test_fitbit_callback_token_exchange_failure(mock_session, mock_post, client)
     mock_session.get.side_effect = session_get_side_effect
 
     # 3. Make the request to the callback endpoint
-    response = client.get("/fitbit/callback?code=test_code&state=test_state")
+    response = client.get("/fitbit/callback?code=test_code&state=test_state", follow_redirects=False)
 
-    assert response.status_code == 200
-    assert "Could not obtain access token from Fitbit" in response.json().get("error")
+    # Assert that it redirects with an error status
+    assert response.status_code == 307
+    expected_url = f"{settings.FRONTEND_URL}?fitbit_status=error_token"
+    assert response.headers["location"] == expected_url
 
 @patch('requests.get')
 @patch('requests.post')
